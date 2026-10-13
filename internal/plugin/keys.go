@@ -11,6 +11,11 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 )
 
+const logoURL = "/v0/resource/plugins/cpa-backboard-provider/logo"
+
+//go:embed assets/logo.png
+var logoPNG []byte
+
 //go:embed assets/keys.html
 var keysPage []byte
 

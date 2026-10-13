@@ -5,3 +5,8 @@ plugins:
   configs:
     cpa-backboard-provider:
       enabled: true
+      # Omit models to discover the full catalog; [] exposes no models.
+      models:
+        - provider: openai
+          name: gpt-4o-mini
+          alias: backboard-mini

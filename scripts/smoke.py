@@ -26,7 +26,7 @@ class Backboard(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps(body).encode())
 
     def do_GET(self):
-        assert self.path.startswith("/models?"), self.path
+        assert self.path == "/models?model_type=llm&limit=1", self.path
         if self.headers.get("X-API-Key") not in {"dummy-key", "dummy-key-2"}:
             self.send_response(401)
             self.end_headers()
@@ -52,7 +52,7 @@ class Backboard(BaseHTTPRequestHandler):
             content = "Paris is sunny"
             calls = []
         else:
-            assert body["memory"] == "off" and body["llm_provider"] == "openai", body
+            assert body["memory"] == "off" and body["llm_provider"] == "openai" and body["model_name"] == "gpt-test", body
             content = "Hello"
             calls = []
             if body.get("tools"):
@@ -89,7 +89,7 @@ def main():
     if not args.live:
         upstream = ThreadingHTTPServer(("127.0.0.1", 0), Backboard)
         threading.Thread(target=upstream.serve_forever, daemon=True).start()
-    model = args.model if args.live else "first/backboard/openai/gpt-test"
+    model = args.model if args.live else "first/quick"
     try:
         with tempfile.TemporaryDirectory(prefix="cpa-backboard-smoke-") as directory:
             root = Path(directory)
@@ -103,6 +103,10 @@ def main():
                 probe.bind(("127.0.0.1", 0))
                 port = probe.getsockname()[1]
             base_config = "" if args.live else f'      base_url: "http://127.0.0.1:{upstream.server_port}"\n'
+            native_provider, native_name = (args.model.removeprefix("backboard/").split("/", 1) if args.live else ("openai", "gpt-test"))
+            base_config += f'      models:\n        - provider: {json.dumps(native_provider)}\n          name: {json.dumps(native_name)}\n'
+            if not args.live:
+                base_config += '          alias: quick\n'
             config = root / "config.yaml"
             config.write_text(f'''config-version: 8
 server:
@@ -154,7 +158,12 @@ plugins:
                             assert response.headers["Cache-Control"] == "no-store"
                         plugins = json.loads(call("/v8/management/plugins", client_key="smoke-management"))["plugins"]
                         backboard = next(p for p in plugins if p["id"]=="cpa-backboard-provider")
-                        assert any(menu["path"].endswith("/keys") for menu in backboard["menus"]), backboard
+                        assert len(backboard["menus"]) == 1, backboard
+                        assert any(menu["path"].endswith("/keys") and menu["menu"] == "Backboard" for menu in backboard["menus"]), backboard
+                        assert backboard["logo"] == "/v0/resource/plugins/cpa-backboard-provider/logo", backboard
+                        with urllib.request.urlopen(f"http://127.0.0.1:{port}" + backboard["logo"], timeout=10) as response:
+                            assert response.headers["Content-Type"] == "image/png"
+                            assert response.read().startswith(b"\x89PNG\r\n\x1a\n")
                         try:
                             call("/v0/management/plugins/backboard/keys", {"api_key":"dummy-key-2"}, client_key="smoke-client")
                         except RuntimeError as error:

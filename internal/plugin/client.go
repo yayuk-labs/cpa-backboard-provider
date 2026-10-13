@@ -61,6 +61,18 @@ func upstreamError(status int) error {
 
 func (a *App) models(req request) (pluginapi.ModelResponse, error) {
 	result := pluginapi.ModelResponse{Provider: "backboard", Models: []pluginapi.ModelInfo{}}
+	a.mu.Lock()
+	configured, models := a.modelsConfigured, a.modelsConfig
+	a.mu.Unlock()
+	if configured {
+		if _, err := apiKey(req.StorageJSON, req.Metadata); err != nil {
+			return result, err
+		}
+		for _, m := range models {
+			result.Models = append(result.Models, pluginapi.ModelInfo{ID: m.id(), Name: m.Name, Object: "model", OwnedBy: "backboard", Type: "backboard", DisplayName: m.id(), UserDefined: true, SupportedGenerationMethods: []string{"chat"}, SupportedInputModalities: []string{"text"}, SupportedOutputModalities: []string{"text"}})
+		}
+		return result, nil
+	}
 	seen := make(map[string]bool)
 	for skip := 0; skip < 50000; {
 		var page struct {

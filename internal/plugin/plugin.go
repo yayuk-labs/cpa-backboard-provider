@@ -13,7 +13,7 @@ import (
 )
 
 const ABIVersion = 1
-const Version = "0.1.1"
+const Version = "0.1.2"
 
 type HostCaller func(string, any) (json.RawMessage, error)
 type Envelope struct {
@@ -35,16 +35,18 @@ func ErrorEnvelope(code, message string, status int) []byte {
 }
 
 type App struct {
-	mu            sync.Mutex
-	baseURL       string
-	call          HostCaller
-	closed        bool
-	workers       sync.WaitGroup
-	shutdown      sync.Once
-	addKeyMu      sync.Mutex
-	history       map[string]*conversation
-	conversations map[*conversation]bool
-	streams       map[string]string
+	mu               sync.Mutex
+	baseURL          string
+	modelsConfig     []configuredModel
+	modelsConfigured bool
+	call             HostCaller
+	closed           bool
+	workers          sync.WaitGroup
+	shutdown         sync.Once
+	addKeyMu         sync.Mutex
+	history          map[string]*conversation
+	conversations    map[*conversation]bool
+	streams          map[string]string
 }
 
 func NewApp() *App {
@@ -114,25 +116,36 @@ func (a *App) handle(method string, req request) (any, error) {
 	case "plugin.register", "plugin.reconfigure":
 		if len(req.ConfigYAML) > 0 {
 			var cfg struct {
-				BaseURL string `yaml:"base_url"`
+				BaseURL string            `yaml:"base_url"`
+				Models  []configuredModel `yaml:"models"`
 			}
 			if yaml.Unmarshal(req.ConfigYAML, &cfg) != nil {
 				return nil, fail(400, "Invalid Backboard plugin configuration")
+			}
+			if err := validateModels(cfg.Models); err != nil {
+				return nil, err
 			}
 			if cfg.BaseURL != "" {
 				u, err := url.Parse(cfg.BaseURL)
 				if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "https" && !(u.Scheme == "http" && u.Hostname() == "127.0.0.1")) {
 					return nil, fail(400, "base_url must use HTTPS (HTTP allowed for loopback tests)")
 				}
-				a.mu.Lock()
-				a.baseURL = strings.TrimRight(cfg.BaseURL, "/")
-				a.mu.Unlock()
 			}
+			a.mu.Lock()
+			if cfg.BaseURL != "" {
+				a.baseURL = strings.TrimRight(cfg.BaseURL, "/")
+			}
+			a.modelsConfig = cfg.Models
+			a.modelsConfigured = cfg.Models != nil
+			a.mu.Unlock()
 		}
-		return map[string]any{"schema_version": 1, "metadata": pluginapi.Metadata{Name: "Backboard", Version: Version, Author: "naufal", GitHubRepository: "https://github.com/yayuk-labs/cpa-backboard-provider"}, "capabilities": map[string]any{"auth_provider": true, "management_api": true, "model_provider": true, "executor": true, "executor_model_scope": "oauth", "executor_input_formats": []string{"chat-completions"}, "executor_output_formats": []string{"chat-completions", "claude", "openai-response"}}}, nil
+		return map[string]any{"schema_version": 1, "metadata": pluginapi.Metadata{Name: "Backboard", Logo: logoURL, ConfigFields: []pluginapi.ConfigField{{Name: "models", Type: "array", Description: "Exact allowlist: provider, name, optional alias. Empty list disables all models; omitted discovers the catalog."}}, Version: Version, Author: "naufal", GitHubRepository: "https://github.com/yayuk-labs/cpa-backboard-provider"}, "capabilities": map[string]any{"auth_provider": true, "management_api": true, "model_provider": true, "executor": true, "executor_model_scope": "oauth", "executor_input_formats": []string{"chat-completions"}, "executor_output_formats": []string{"chat-completions", "claude", "openai-response"}}}, nil
 	case "management.register":
-		return pluginapi.ManagementRegistrationResponse{Resources: []pluginapi.ResourceRoute{{Path: "/keys", Menu: "Backboard API keys", Description: "Add Backboard API-key credentials"}}, Routes: []pluginapi.ManagementRoute{{Method: "POST", Path: "/plugins/backboard/cleanup", Description: "Delete idle plugin-owned Backboard assistants and threads"}, {Method: "POST", Path: "/plugins/backboard/keys", Description: "Add a Backboard API key"}}}, nil
+		return pluginapi.ManagementRegistrationResponse{Resources: []pluginapi.ResourceRoute{{Path: "/keys", Menu: "Backboard", Description: "Add Backboard API-key credentials"}, {Path: "/logo"}}, Routes: []pluginapi.ManagementRoute{{Method: "POST", Path: "/plugins/backboard/cleanup", Description: "Delete idle plugin-owned Backboard assistants and threads"}, {Method: "POST", Path: "/plugins/backboard/keys", Description: "Add a Backboard API key"}}}, nil
 	case "management.handle":
+		if req.Method == "GET" && req.Path == logoURL {
+			return pluginapi.ManagementResponse{StatusCode: 200, Body: logoPNG, Headers: map[string][]string{"Content-Type": {"image/png"}, "X-Content-Type-Options": {"nosniff"}}}, nil
+		}
 		if req.Method == "GET" && req.Path == "/v0/resource/plugins/cpa-backboard-provider/keys" {
 			return apiKeysPage(), nil
 		}

@@ -105,9 +105,9 @@ func (a *App) prepare(req request, stream bool) (*completion, error) {
 	if model == "" {
 		model = payload.Model
 	}
-	provider, name, ok := strings.Cut(strings.TrimPrefix(model, "backboard/"), "/")
-	if !ok || provider == "" || name == "" {
-		return nil, fail(400, "Use a provider-qualified model ID from /v1/models")
+	provider, name, err := a.resolveModel(model)
+	if err != nil {
+		return nil, err
 	}
 	c := &completion{req: req, model: model, provider: provider, tools: payload.Tools, path: "/threads/messages"}
 	c.format = t.FromString(req.Format)

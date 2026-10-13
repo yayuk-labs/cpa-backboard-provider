@@ -114,7 +114,7 @@ func TestAPIKeyMenuServesPublicFormWithoutCredentials(t *testing.T) {
 	rpc(t, app, "management.register", nil, &registration)
 	found := false
 	for _, resource := range registration.Resources {
-		if resource.Path == "/keys" && resource.Menu == "Backboard API keys" {
+		if resource.Path == "/keys" && resource.Menu == "Backboard" {
 			found = true
 		}
 	}

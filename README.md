@@ -29,7 +29,7 @@ Tagged releases build and test Linux amd64 and arm64 on Ubuntu 22.04, then publi
 
 ## Install and authenticate
 
-For remote Linux CPA, add the registry under `plugins.store-sources`, then choose **Backboard** in the Plugin Store and install version **0.1.1**:
+For remote Linux CPA, add the registry under `plugins.store-sources`, then choose **Backboard** in the Plugin Store and install version **0.1.2**:
 
 ```yaml
 plugins:
@@ -57,9 +57,35 @@ plugins:
       enabled: true
 ```
 
+### Select models and aliases (v0.1.2+)
+
+Set an exact allowlist under the plugin settings. CPA registers these models for every Backboard credential without fetching the full catalog:
+
+```yaml
+plugins:
+  configs:
+    cpa-backboard-provider:
+      enabled: true
+      models:
+        - provider: openai
+          name: gpt-4o-mini
+          alias: backboard-mini
+        - provider: anthropic
+          name: claude-sonnet-4-6
+          alias: backboard-sonnet
+        - provider: openrouter
+          name: anthropic/claude-sonnet-4.6
+```
+
+Request `backboard-mini` or `backboard-sonnet`. Without an alias, the public ID is `backboard/<provider>/<name>`. Credential routing prefixes still apply (e.g. `first/backboard-mini`). Canonical IDs for selected models are also accepted by the plugin. All other native models are rejected before upstream calls.
+
+Omitting `models` keeps full catalog discovery for existing configurations. `models: []` disables all models. Entries require exact Backboard provider/name values; aliases and canonical IDs must be unique. Restart CPA after saving the settings to refresh its registered models. No catalog lookup validates configured names or capabilities; Backboard checks availability when requested. Existing global CPA exclusions/aliases can still hide or rename registered entries.
+
+The sidebar entry is **Backboard**, using the embedded Backboard logo. The Plugin Store uses the same supplied image from this repository.
+
 ### Add keys from CPA (v0.1.1+)
 
-Open **Backboard API keys** in CPA's plugin menu, or visit `/v0/resource/plugins/cpa-backboard-provider/keys` on your CPA server. Enter your CPA management key and Backboard API key; label and routing prefix are optional. Click **Add API key**. Repeat to add more keys. Backboard validates each new key before CPA saves it in its auth directory with mode 0600.
+Open **Backboard** in CPA's plugin menu, or visit `/v0/resource/plugins/cpa-backboard-provider/keys` on your CPA server. Enter your CPA management key and Backboard API key; label and routing prefix are optional. Click **Add API key**. Repeat to add more keys. Backboard validates each new key before CPA saves it in its auth directory with mode 0600.
 
 The page keeps the management key only while open and clears the Backboard key after saving. It uses no browser storage. Duplicate keys leave the existing credential and all its settings unchanged; adding a key again does not rename, enable, or alter its routing prefix.
 
