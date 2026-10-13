@@ -29,7 +29,7 @@ Tagged releases build and test Linux amd64 and arm64 on Ubuntu 22.04, then publi
 
 ## Install and authenticate
 
-For remote Linux CPA, add the registry under `plugins.store-sources`, then choose **Backboard** in the Plugin Store and install version **0.1.2**:
+For remote Linux CPA, add the registry under `plugins.store-sources`, then choose **Backboard** in the Plugin Store and install version **0.1.3**:
 
 ```yaml
 plugins:
@@ -59,6 +59,8 @@ plugins:
 
 ### Select models and aliases (v0.1.2+)
 
+Open **Backboard**, enter your CPA management key, and click **Load model settings**. Choose **Only selected models**, then add provider/model-name rows and optional aliases. **Save model settings** validates the list and updates only `models`, preserving other plugin settings. The list applies to every Backboard key. Remove all rows to disable models, or choose **Full Backboard catalog** to restore discovery. Settings persist in CPA's configuration and reload automatically.
+
 Set an exact allowlist under the plugin settings. CPA registers these models for every Backboard credential without fetching the full catalog:
 
 ```yaml
@@ -79,7 +81,7 @@ plugins:
 
 Request `backboard-mini` or `backboard-sonnet`. Without an alias, the public ID is `backboard/<provider>/<name>`. Credential routing prefixes still apply (e.g. `first/backboard-mini`). Canonical IDs for selected models are also accepted by the plugin. All other native models are rejected before upstream calls.
 
-Omitting `models` keeps full catalog discovery for existing configurations. `models: []` disables all models. Entries require exact Backboard provider/name values; aliases and canonical IDs must be unique. Restart CPA after saving the settings to refresh its registered models. No catalog lookup validates configured names or capabilities; Backboard checks availability when requested. Existing global CPA exclusions/aliases can still hide or rename registered entries.
+Omitting `models` keeps full catalog discovery for existing configurations. `models: []` disables all models. Entries require exact Backboard provider/name values; aliases and canonical IDs must be unique. CPA reloads saved settings automatically; model lists may take a moment to refresh. No catalog lookup validates configured names or capabilities; Backboard checks availability when requested. Existing global CPA exclusions/aliases can still hide or rename registered entries.
 
 The sidebar entry is **Backboard**, using the embedded Backboard logo. The Plugin Store uses the same supplied image from this repository.
 

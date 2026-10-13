@@ -3,32 +3,38 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Backboard API keys</title>
+<title>Backboard</title>
 <style>
 :root{color-scheme:light dark;font-family:system-ui,sans-serif;background:#f5f5f3;color:#202321;font-size:16px}
 *{box-sizing:border-box}body{margin:0}main{max-width:38rem;margin:clamp(2rem,8vh,6rem) auto;padding:0 1.5rem 3rem}
 header{display:flex;gap:1rem;align-items:center;margin-bottom:2.5rem}header img{width:40px;height:40px}h1{font-size:2rem;margin:0;font-weight:650}
 h2{font-size:1.125rem;margin:2rem 0 .75rem}p{line-height:1.6;margin:.75rem 0;color:#515952}label{display:block;font-weight:600;margin:1rem 0 .5rem}
-input,textarea,button{font:inherit}input,textarea{width:100%;padding:.85rem;border:1px solid #8a938c;border-radius:6px;background:#fff;color:#202321;caret-color:#216b42}
+input,textarea,button,select{font:inherit}input,textarea,select{width:100%;padding:.85rem;border:1px solid #8a938c;border-radius:6px;background:#fff;color:#202321;caret-color:#216b42}
 textarea{resize:vertical;min-height:8rem;overflow-wrap:anywhere}button,a.action{display:inline-block;padding:.8rem 1.15rem;background:#216b42;border:0;border-radius:6px;color:#fff;font-weight:600;cursor:pointer;text-decoration:none;margin-top:1rem}
 button:hover,a.action:hover{background:#195432}button:disabled{opacity:.55;cursor:wait}a{color:#216b42;text-underline-offset:.2em}a.action{margin-right:1rem}
 :focus-visible{outline:3px solid #34794e;outline-offset:3px}::selection{background:#bbdfc6;color:#152e1f}.hint{font-size:.875rem}#notice{padding-top:1rem;color:#202321}#notice[data-error=true]{color:#a02920}[hidden]{display:none!important}
-@media(prefers-color-scheme:dark){:root{background:#181c19;color:#edf1ed}p{color:#bbc5bd}input,textarea{background:#242b26;color:#edf1ed;border-color:#748278}a{color:#99d6ab}#notice{color:#edf1ed}#notice[data-error=true]{color:#ffb4a9}header img{filter:invert(1)}}
+@media(prefers-color-scheme:dark){:root{background:#181c19;color:#edf1ed}p{color:#bbc5bd}input,textarea,select{background:#242b26;color:#edf1ed;border-color:#748278}a{color:#99d6ab}#notice{color:#edf1ed}#notice[data-error=true]{color:#ffb4a9}header img{filter:invert(1)}}
 
 input::placeholder{color:#515952;opacity:1}
 fieldset{border:0;padding:0;margin:0;min-width:0}.optional{font-weight:400;color:#515952}code{overflow-wrap:anywhere}
 @media(prefers-color-scheme:dark){.optional,input::placeholder{color:#bbc5bd}}
+.model-row{padding:1rem 0 1.5rem;border-bottom:1px solid #8a938c;display:grid;grid-template-columns:1fr 1fr;gap:0 1rem}
+.model-row legend{font-weight:600;padding-top:1rem}.model-row label{font-size:.875rem}.model-row button{background:transparent;color:#515952;border:1px solid #8a938c;align-self:end}.model-row button:hover{background:#e6e9e4}
+#models-notice{padding-top:1rem;line-height:1.6}#models-notice[data-error=true]{color:#a02920}
+@media(prefers-color-scheme:dark){.model-row button{color:#bbc5bd}.model-row button:hover{background:#242b26}#models-notice[data-error=true]{color:#ffb4a9}}
+@media(max-width:480px){.model-row{grid-template-columns:1fr}.model-row button{justify-self:start}}
 </style>
 </head>
 <body>
 <main>
-<header><h1>Backboard API keys</h1></header>
+<header><h1>Backboard</h1></header>
 <p>Connect Backboard to CPA. Add one key at a time; each key gets its own credential.</p>
-<form id="add-key">
-<fieldset id="fields">
 <label for="management-key">CPA management key</label>
 <input id="management-key" type="password" autocomplete="off" spellcheck="false" required aria-describedby="management-help">
-<p class="hint" id="management-help">Authorizes saving credentials to CPA. Kept only while this page is open.</p>
+<p class="hint" id="management-help">Authorizes saving keys and model settings to CPA. Kept only while this page is open.</p>
+<h2>API keys</h2>
+<form id="add-key">
+<fieldset id="fields">
 <label for="api-key">Backboard API key</label>
 <input id="api-key" type="password" autocomplete="off" spellcheck="false" required aria-describedby="api-help">
 <p class="hint" id="api-help">The key is validated with Backboard before it is saved.</p>
@@ -41,6 +47,25 @@ fieldset{border:0;padding:0;margin:0;min-width:0}.optional{font-weight:400;color
 </fieldset>
 </form>
 <p id="notice" role="status" aria-live="polite"></p>
+<section aria-labelledby="models-heading">
+<h2 id="models-heading">Models and aliases</h2>
+<p>Choose the models available to all Backboard keys. Enter exact provider and model names; the full catalog is never needed for a selected list.</p>
+<button id="load-models" type="button">Load model settings</button>
+<form id="model-settings">
+<fieldset id="model-fields" disabled>
+<label for="model-mode">Available models</label>
+<select id="model-mode" aria-describedby="mode-help"><option value="allowlist">Only selected models</option><option value="discovery">Full Backboard catalog</option></select>
+<p class="hint" id="mode-help">An empty selected list disables all models. Full catalog discovery loads thousands of models.</p>
+<div id="selected-models">
+<div id="model-rows"></div>
+<button id="add-model" type="button">Add model</button>
+<p class="hint">Alias is optional. For example, alias <code>backboard-mini</code> lets you request that name. Without an alias, use <code>backboard/provider/model-name</code>. Credential routing prefixes still apply.</p>
+</div>
+<button id="save-models" type="submit">Save model settings</button>
+</fieldset>
+</form>
+<p id="models-notice" role="status" aria-live="polite">Enter your CPA management key, then load the current settings before editing.</p>
+</section>
 <noscript><p>Enable JavaScript to add a key here, or import a Backboard credential file through CPA Auth Files.</p></noscript>
 </main>
 <script>
@@ -60,6 +85,59 @@ form.addEventListener('submit',async event=>{
     notice.textContent=data.status==='existing'?'This key is already in CPA. Existing account settings were kept.':'Backboard API key added. It is available in CPA Auth Files. You can add another key here.';
   }catch(error){notice.textContent=error.message;notice.dataset.error='true'}
   finally{fields.disabled=false;form.removeAttribute('aria-busy');button.textContent='Add API key';if(!apiKey.value)apiKey.focus()}
+});
+
+const modelForm=document.querySelector('#model-settings'),modelFields=document.querySelector('#model-fields'),modelMode=document.querySelector('#model-mode'),modelRows=document.querySelector('#model-rows'),modelNotice=document.querySelector('#models-notice'),loadModels=document.querySelector('#load-models'),saveModels=document.querySelector('#save-models');
+const configPath='/v8/management/config/plugins/configs/cpa-backboard-provider';
+let rowNumber=0;
+function modelStatus(message,error=false){modelNotice.textContent=message;modelNotice.dataset.error=String(error)}
+async function settingsRequest(path,method='GET',body){
+  const key=managementKey.value.trim();
+  if(!key)throw new Error('Enter your CPA management key, then try again.');
+  const response=await fetch(path,{method,headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),cache:'no-store',credentials:'omit'});
+  const data=await response.json().catch(()=>({}));
+  if(response.status===404&&method==='GET'&&path===configPath)return {};
+  if(!response.ok)throw new Error((response.status===401||response.status===403)?'CPA management key rejected. Check the key and try again.':(data.message||data.error||'Could not save model settings. Try again.'));
+  return data;
+}
+function addModel(model={}){
+  const row=document.createElement('fieldset');row.className='model-row';
+  const legend=document.createElement('legend');legend.textContent='Model';row.append(legend);
+  const number=++rowNumber;
+  for(const [name,title,example] of [['provider','Provider','openai'],['name','Model name','gpt-4o-mini'],['alias','Alias (optional)','backboard-mini']]){
+    const group=document.createElement('div'),label=document.createElement('label'),input=document.createElement('input');
+    input.id='model-'+number+'-'+name;input.dataset.field=name;input.value=model[name]||'';input.placeholder=example;input.autocomplete='off';input.spellcheck=false;input.required=name!=='alias';
+    label.htmlFor=input.id;label.textContent=title;group.append(label,input);row.append(group);
+  }
+  const remove=document.createElement('button');remove.type='button';remove.textContent='Remove model';remove.addEventListener('click',()=>{row.remove();document.querySelector('#add-model').focus()});row.append(remove);modelRows.append(row);
+  return row;
+}
+function showModelMode(){const selected=modelMode.value==='allowlist';document.querySelector('#selected-models').hidden=!selected;for(const input of modelRows.querySelectorAll('input'))input.disabled=!selected}
+modelMode.addEventListener('change',showModelMode);
+document.querySelector('#add-model').addEventListener('click',()=>{addModel().querySelector('input').focus()});
+loadModels.addEventListener('click',async()=>{
+  loadModels.disabled=true;modelFields.disabled=true;modelStatus('Loading model settings…');
+  try{
+    const config=await settingsRequest(configPath);
+    if(config.models!=null&&(!Array.isArray(config.models)||config.models.some(m=>!m||typeof m.provider!=='string'||typeof m.name!=='string'||(m.alias!=null&&typeof m.alias!=='string'))))throw new Error('Saved model settings are invalid. Fix them in CPA plugin settings before loading.');
+    modelRows.replaceChildren();for(const model of config.models||[])addModel(model);
+    modelMode.value=config.models==null?'discovery':'allowlist';showModelMode();modelFields.disabled=false;
+    modelStatus('Settings loaded. Changes apply to every Backboard key.');
+  }catch(error){modelStatus(error.message,true)}
+  finally{loadModels.disabled=false}
+});
+modelForm.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const models=modelMode.value==='discovery'?null:Array.from(modelRows.children,row=>{
+    const model={};for(const input of row.querySelectorAll('input')){const value=input.value.trim();if(value||input.dataset.field!=='alias')model[input.dataset.field]=value}return model;
+  });
+  modelFields.disabled=true;loadModels.disabled=true;saveModels.textContent='Saving…';modelStatus('Validating model settings…');
+  try{
+    await settingsRequest('/v0/management/plugins/backboard/models/validate','POST',{models});
+    await settingsRequest(configPath,'PATCH',{models});
+    modelStatus('Model settings saved. CPA reloads them automatically; model lists may take a moment to refresh.');
+  }catch(error){modelStatus(error.message,true)}
+  finally{modelFields.disabled=false;loadModels.disabled=false;saveModels.textContent='Save model settings'}
 });
 </script>
 </body>

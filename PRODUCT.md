@@ -12,11 +12,11 @@ CPA administrators connecting Backboard accounts on local or remote servers.
 
 ## Product Purpose
 
-Provide model access through a CPA plugin and let administrators add API-key credentials from a standalone Backboard menu.
+Provide model access through a CPA plugin and let administrators add API-key credentials and edit shared model allowlists and aliases from a standalone Backboard menu.
 
 ## Operating Context
 
-The page follows the existing Zed plugin management-page pattern. Administrators authorize writes with their CPA management key and add one Backboard key at a time.
+The page follows the existing Zed plugin management-page pattern. Administrators authorize writes with their CPA management key and add one Backboard key at a time. Model settings load before editing; validated saves change only models and preserve other configuration.
 
 ## Capabilities and Constraints
 

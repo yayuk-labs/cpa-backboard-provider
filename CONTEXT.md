@@ -15,3 +15,7 @@ Backboard credentials grant access to AI models and conversations through CLIPro
 **Run**: A model's response to a message, which may pause while waiting for tool results.
 
 **Tool continuation**: Resuming a paused run by supplying results for all its pending tool calls.
+
+**Model allowlist**: The selected Backboard models available to all credentials. An empty allowlist permits no models.
+
+**Model alias**: A public request name assigned to a selected Backboard model.

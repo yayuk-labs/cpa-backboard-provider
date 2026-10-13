@@ -13,7 +13,7 @@ import (
 )
 
 const ABIVersion = 1
-const Version = "0.1.2"
+const Version = "0.1.3"
 
 type HostCaller func(string, any) (json.RawMessage, error)
 type Envelope struct {
@@ -141,13 +141,16 @@ func (a *App) handle(method string, req request) (any, error) {
 		}
 		return map[string]any{"schema_version": 1, "metadata": pluginapi.Metadata{Name: "Backboard", Logo: logoURL, ConfigFields: []pluginapi.ConfigField{{Name: "models", Type: "array", Description: "Exact allowlist: provider, name, optional alias. Empty list disables all models; omitted discovers the catalog."}}, Version: Version, Author: "naufal", GitHubRepository: "https://github.com/yayuk-labs/cpa-backboard-provider"}, "capabilities": map[string]any{"auth_provider": true, "management_api": true, "model_provider": true, "executor": true, "executor_model_scope": "oauth", "executor_input_formats": []string{"chat-completions"}, "executor_output_formats": []string{"chat-completions", "claude", "openai-response"}}}, nil
 	case "management.register":
-		return pluginapi.ManagementRegistrationResponse{Resources: []pluginapi.ResourceRoute{{Path: "/keys", Menu: "Backboard", Description: "Add Backboard API-key credentials"}, {Path: "/logo"}}, Routes: []pluginapi.ManagementRoute{{Method: "POST", Path: "/plugins/backboard/cleanup", Description: "Delete idle plugin-owned Backboard assistants and threads"}, {Method: "POST", Path: "/plugins/backboard/keys", Description: "Add a Backboard API key"}}}, nil
+		return pluginapi.ManagementRegistrationResponse{Resources: []pluginapi.ResourceRoute{{Path: "/keys", Menu: "Backboard", Description: "Manage Backboard API keys and models"}, {Path: "/logo"}}, Routes: []pluginapi.ManagementRoute{{Method: "POST", Path: "/plugins/backboard/models/validate", Description: "Validate model settings before saving"}, {Method: "POST", Path: "/plugins/backboard/cleanup", Description: "Delete idle plugin-owned Backboard assistants and threads"}, {Method: "POST", Path: "/plugins/backboard/keys", Description: "Add a Backboard API key"}}}, nil
 	case "management.handle":
 		if req.Method == "GET" && req.Path == logoURL {
 			return pluginapi.ManagementResponse{StatusCode: 200, Body: logoPNG, Headers: map[string][]string{"Content-Type": {"image/png"}, "X-Content-Type-Options": {"nosniff"}}}, nil
 		}
 		if req.Method == "GET" && req.Path == "/v0/resource/plugins/cpa-backboard-provider/keys" {
 			return apiKeysPage(), nil
+		}
+		if req.Method == "POST" && req.Path == "/v0/management/plugins/backboard/models/validate" {
+			return validateModelSettings(req.Body), nil
 		}
 		if req.Method == "POST" && req.Path == "/v0/management/plugins/backboard/keys" {
 			return a.addAPIKey(req), nil

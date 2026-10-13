@@ -129,8 +129,8 @@ plugins:
             with (root / "cpa.log").open("w+") as log:
                 process = subprocess.Popen([str(args.cpa.resolve()), "-config", str(config), "-local-model"], cwd=root, stdout=log, stderr=log)
                 try:
-                    def call(path, body=None, client_key="smoke-client"):
-                        request = urllib.request.Request(f"http://127.0.0.1:{port}" + path, data=None if body is None else json.dumps(body).encode(), headers={"Authorization": "Bearer "+client_key, "Content-Type": "application/json"})
+                    def call(path, body=None, client_key="smoke-client", method=None):
+                        request = urllib.request.Request(f"http://127.0.0.1:{port}" + path, data=None if body is None else json.dumps(body).encode(), headers={"Authorization": "Bearer "+client_key, "Content-Type": "application/json"}, method=method)
                         try:
                             with urllib.request.urlopen(request, timeout=90) as response:
                                 return response.read()
@@ -154,7 +154,7 @@ plugins:
                         page_url = f"http://127.0.0.1:{port}/v0/resource/plugins/cpa-backboard-provider/keys"
                         with urllib.request.urlopen(page_url, timeout=10) as response:
                             page = response.read()
-                            assert b"Backboard API keys" in page and b"Add API key" in page, page
+                            assert b"Models and aliases" in page and b"Add API key" in page, page
                             assert response.headers["Cache-Control"] == "no-store"
                         plugins = json.loads(call("/v8/management/plugins", client_key="smoke-management"))["plugins"]
                         backboard = next(p for p in plugins if p["id"]=="cpa-backboard-provider")
@@ -184,6 +184,27 @@ plugins:
                         else:
                             raise AssertionError("Rejected upstream key was saved")
                         print("Standalone key page + authenticated add + preservation OK",flush=True)
+                        config_path="/v8/management/config/plugins/configs/cpa-backboard-provider"
+                        settings=json.loads(call(config_path,client_key="smoke-management"))
+                        selected={"models":[{"provider":"openai","name":"gpt-test","alias":"quick"}]}
+                        validated=json.loads(call("/v0/management/plugins/backboard/models/validate",selected,client_key="smoke-management"))
+                        assert validated["valid"],validated
+                        call(config_path,selected,client_key="smoke-management",method="PATCH")
+                        saved=json.loads(call(config_path,client_key="smoke-management"))
+                        assert saved["models"]==selected["models"] and saved["base_url"]==settings["base_url"] and saved["enabled"]==settings["enabled"],saved
+                        try:
+                            call("/v0/management/plugins/backboard/models/validate",{"models":[{"provider":"openai","name":"*"}]},client_key="smoke-management")
+                        except RuntimeError as error:
+                            assert "HTTP 400" in str(error),error
+                        else:
+                            raise AssertionError("Invalid model settings accepted")
+                        try:
+                            call("/v0/management/plugins/backboard/models/validate",selected,client_key="smoke-client")
+                        except RuntimeError as error:
+                            assert "HTTP 401" in str(error) or "HTTP 403" in str(error),error
+                        else:
+                            raise AssertionError("Model validation accepted client credentials")
+                        print("Model settings load + validation + persistence + preservation OK",flush=True)
                     try:
                         call("/v0/management/plugins/backboard/cleanup", {}, client_key="smoke-client")
                     except RuntimeError as error:

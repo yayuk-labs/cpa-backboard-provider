@@ -60,3 +60,24 @@ func TestAllowlistRejectsUnlistedRequestsAndInvalidReconfiguration(t *testing.T)
 	}
 	reject("quick")
 }
+
+func TestModelEditorValidatesBeforeSettingsAreSaved(t *testing.T) {
+	app := plugin.NewApp()
+	for _, test := range []struct {
+		body   string
+		status int
+	}{
+		{`{"models":[{"provider":"openai","name":"gpt-test","alias":"quick"}]}`, 200},
+		{`{"models":[]}`, 200},
+		{`{"models":null}`, 200},
+		{`{}`, 400},
+		{`{"models":[{"provider":"openai","name":"*"}]}`, 400},
+		{`{"models":[{"provider":"openai","name":"one","alias":"same"},{"provider":"openai","name":"two","alias":"same"}]}`, 400},
+	} {
+		var response pluginapi.ManagementResponse
+		rpc(t, app, "management.handle", pluginapi.ManagementRequest{Method: "POST", Path: "/v0/management/plugins/backboard/models/validate", Body: []byte(test.body)}, &response)
+		if response.StatusCode != test.status {
+			t.Fatalf("%s: got %d want %d", test.body, response.StatusCode, test.status)
+		}
+	}
+}

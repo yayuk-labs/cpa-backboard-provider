@@ -1,6 +1,11 @@
 package plugin
 
-import "strings"
+import (
+	"encoding/json"
+	"strings"
+
+	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
+)
 
 type configuredModel struct {
 	Provider string `yaml:"provider"`
@@ -52,4 +57,19 @@ func (a *App) resolveModel(id string) (string, string, error) {
 		return "", "", fail(400, "Use a provider-qualified model ID from /v1/models")
 	}
 	return provider, name, nil
+}
+
+func validateModelSettings(body []byte) pluginapi.ManagementResponse {
+	var input map[string]json.RawMessage
+	if len(body) > 64*1024 || json.Unmarshal(body, &input) != nil || input["models"] == nil {
+		return managementJSON(400, map[string]string{"error": "Provide a model list or choose full catalog discovery"})
+	}
+	var models []configuredModel
+	if json.Unmarshal(input["models"], &models) != nil {
+		return managementJSON(400, map[string]string{"error": "Each model requires provider, name, and optional alias"})
+	}
+	if err := validateModels(models); err != nil {
+		return managementJSON(400, map[string]string{"error": err.Error()})
+	}
+	return managementJSON(200, map[string]bool{"valid": true})
 }
