@@ -1,0 +1,69 @@
+name: Publish plugin release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            goarch: amd64
+          - runner: ubuntu-22.04-arm
+            goarch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Verify
+        run: |
+          go test -race ./...
+          go vet -tags cshared ./...
+      - name: Build and package
+        env:
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          set -euo pipefail
+          CGO_ENABLED=1 go build -tags cshared -buildmode=c-shared -o dist/cpa-backboard-provider.so ./cmd/cpa-backboard-provider
+          sdk_dir="$(go list -m -f '{{.Dir}}' github.com/router-for-me/CLIProxyAPI/v8)"
+          (cd "$sdk_dir" && go build -o "$RUNNER_TEMP/cli-proxy-api" ./cmd/server)
+          python3 scripts/smoke.py --cpa "$RUNNER_TEMP/cli-proxy-api" --plugin dist/cpa-backboard-provider.so
+          version="${GITHUB_REF_NAME#v}"
+          python3 -c 'import json, os, pathlib, re; v = os.environ["GITHUB_REF_NAME"].removeprefix("v"); assert json.loads(pathlib.Path("registry.json").read_text())["plugins"][0]["version"] == v; assert re.search(r"const Version = \"([^\"]+)\"", pathlib.Path("internal/plugin/plugin.go").read_text()).group(1) == v'
+          zip -j "${RUNNER_TEMP}/cpa-backboard-provider_${version}_linux_${GOARCH}.zip" dist/cpa-backboard-provider.so LICENSE
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux-${{ matrix.goarch }}
+          path: ${{ runner.temp }}/cpa-backboard-provider_*.zip
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: linux-*
+          path: release-assets
+          merge-multiple: true
+      - name: Create checksums and GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cd release-assets
+          sha256sum *.zip > checksums.txt
+          gh release create "$GITHUB_REF_NAME" ./*.zip checksums.txt --verify-tag --generate-notes

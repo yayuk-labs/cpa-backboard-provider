@@ -1,0 +1,9 @@
+/dist/
+*.dylib
+*.so
+*.dll
+*.h
+__pycache__/
+/auths/
+/.env
+/config.yaml

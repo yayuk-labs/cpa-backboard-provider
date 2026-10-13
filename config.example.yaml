@@ -1,0 +1,7 @@
+# Merge into your CPA configuration. Put credentials in CPA's auth directory.
+plugins:
+  enabled: true
+  dir: plugins
+  configs:
+    cpa-backboard-provider:
+      enabled: true
