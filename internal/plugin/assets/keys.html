@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backboard API keys</title>
+<style>
+:root{color-scheme:light dark;font-family:system-ui,sans-serif;background:#f5f5f3;color:#202321;font-size:16px}
+*{box-sizing:border-box}body{margin:0}main{max-width:38rem;margin:clamp(2rem,8vh,6rem) auto;padding:0 1.5rem 3rem}
+header{display:flex;gap:1rem;align-items:center;margin-bottom:2.5rem}header img{width:40px;height:40px}h1{font-size:2rem;margin:0;font-weight:650}
+h2{font-size:1.125rem;margin:2rem 0 .75rem}p{line-height:1.6;margin:.75rem 0;color:#515952}label{display:block;font-weight:600;margin:1rem 0 .5rem}
+input,textarea,button{font:inherit}input,textarea{width:100%;padding:.85rem;border:1px solid #8a938c;border-radius:6px;background:#fff;color:#202321;caret-color:#216b42}
+textarea{resize:vertical;min-height:8rem;overflow-wrap:anywhere}button,a.action{display:inline-block;padding:.8rem 1.15rem;background:#216b42;border:0;border-radius:6px;color:#fff;font-weight:600;cursor:pointer;text-decoration:none;margin-top:1rem}
+button:hover,a.action:hover{background:#195432}button:disabled{opacity:.55;cursor:wait}a{color:#216b42;text-underline-offset:.2em}a.action{margin-right:1rem}
+:focus-visible{outline:3px solid #34794e;outline-offset:3px}::selection{background:#bbdfc6;color:#152e1f}.hint{font-size:.875rem}#notice{padding-top:1rem;color:#202321}#notice[data-error=true]{color:#a02920}[hidden]{display:none!important}
+@media(prefers-color-scheme:dark){:root{background:#181c19;color:#edf1ed}p{color:#bbc5bd}input,textarea{background:#242b26;color:#edf1ed;border-color:#748278}a{color:#99d6ab}#notice{color:#edf1ed}#notice[data-error=true]{color:#ffb4a9}header img{filter:invert(1)}}
+
+input::placeholder{color:#515952;opacity:1}
+fieldset{border:0;padding:0;margin:0;min-width:0}.optional{font-weight:400;color:#515952}code{overflow-wrap:anywhere}
+@media(prefers-color-scheme:dark){.optional,input::placeholder{color:#bbc5bd}}
+</style>
+</head>
+<body>
+<main>
+<header><h1>Backboard API keys</h1></header>
+<p>Connect Backboard to CPA. Add one key at a time; each key gets its own credential.</p>
+<form id="add-key">
+<fieldset id="fields">
+<label for="management-key">CPA management key</label>
+<input id="management-key" type="password" autocomplete="off" spellcheck="false" required aria-describedby="management-help">
+<p class="hint" id="management-help">Authorizes saving credentials to CPA. Kept only while this page is open.</p>
+<label for="api-key">Backboard API key</label>
+<input id="api-key" type="password" autocomplete="off" spellcheck="false" required aria-describedby="api-help">
+<p class="hint" id="api-help">The key is validated with Backboard before it is saved.</p>
+<label for="label">Label <span class="optional">(optional)</span></label>
+<input id="label" maxlength="100" autocomplete="off" placeholder="Personal or Work">
+<label for="prefix">Routing prefix <span class="optional">(optional)</span></label>
+<input id="prefix" maxlength="64" pattern="[A-Za-z0-9._-]{1,64}" autocomplete="off" spellcheck="false" placeholder="work" aria-describedby="prefix-help">
+<p class="hint" id="prefix-help">Use a unique prefix to keep tool conversations on this key. Example: <code id="model-example">work/backboard/openai/gpt-4o-mini</code></p>
+<button id="save-button" type="submit">Add API key</button>
+</fieldset>
+</form>
+<p id="notice" role="status" aria-live="polite"></p>
+<noscript><p>Enable JavaScript to add a key here, or import a Backboard credential file through CPA Auth Files.</p></noscript>
+</main>
+<script>
+const form=document.querySelector('#add-key'),fields=document.querySelector('#fields'),button=document.querySelector('#save-button'),managementKey=document.querySelector('#management-key'),apiKey=document.querySelector('#api-key'),label=document.querySelector('#label'),prefix=document.querySelector('#prefix'),notice=document.querySelector('#notice');
+prefix.addEventListener('input',()=>{document.querySelector('#model-example').textContent=(prefix.value.trim()||'work')+'/backboard/openai/gpt-4o-mini'});
+form.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const body={api_key:apiKey.value.trim(),label:label.value.trim(),prefix:prefix.value.trim()};
+  if(!managementKey.value.trim()||!body.api_key){notice.textContent='Enter both the CPA management key and Backboard API key.';notice.dataset.error='true';return}
+  fields.disabled=true;form.setAttribute('aria-busy','true');button.textContent='Validating and saving…';notice.textContent='';notice.dataset.error='false';
+  try{
+    const response=await fetch('/v0/management/plugins/backboard/keys',{method:'POST',headers:{Authorization:'Bearer '+managementKey.value.trim(),'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store',credentials:'omit'});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(data.error||((response.status===401||response.status===403)?'CPA management key rejected. Check the key and try again.':'Could not save the key. Try again.'));
+    if(data.status!=='added'&&data.status!=='existing')throw new Error('CPA did not confirm the key was saved. Check Auth Files before retrying.');
+    apiKey.value='';
+    notice.textContent=data.status==='existing'?'This key is already in CPA. Existing account settings were kept.':'Backboard API key added. It is available in CPA Auth Files. You can add another key here.';
+  }catch(error){notice.textContent=error.message;notice.dataset.error='true'}
+  finally{fields.disabled=false;form.removeAttribute('aria-busy');button.textContent='Add API key';if(!apiKey.value)apiKey.focus()}
+});
+</script>
+</body>
+</html>

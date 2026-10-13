@@ -6,7 +6,7 @@
       "name": "Backboard",
       "description": "Adds Backboard.io models, streaming, and native tools to CLIProxyAPI.",
       "author": "yayuk-labs",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "repository": "https://github.com/yayuk-labs/cpa-backboard-provider",
       "homepage": "https://github.com/yayuk-labs/cpa-backboard-provider",
       "license": "MIT",

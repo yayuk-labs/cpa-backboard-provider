@@ -27,6 +27,10 @@ class Backboard(BaseHTTPRequestHandler):
 
     def do_GET(self):
         assert self.path.startswith("/models?"), self.path
+        if self.headers.get("X-API-Key") not in {"dummy-key", "dummy-key-2"}:
+            self.send_response(401)
+            self.end_headers()
+            return
         self.reply({"total": 1, "models": [{"name": "gpt-test", "provider": "openai", "context_limit": 128000, "supports_tools": True}]})
 
     def do_DELETE(self):
@@ -34,7 +38,7 @@ class Backboard(BaseHTTPRequestHandler):
         self.reply({})
 
     def do_POST(self):
-        assert self.headers["X-API-Key"] == "dummy-key"
+        assert self.headers["X-API-Key"] in {"dummy-key", "dummy-key-2"}
         size = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(size) or b"{}")
         if self.path == "/assistants":
@@ -85,7 +89,7 @@ def main():
     if not args.live:
         upstream = ThreadingHTTPServer(("127.0.0.1", 0), Backboard)
         threading.Thread(target=upstream.serve_forever, daemon=True).start()
-    model = args.model if args.live else "backboard/openai/gpt-test"
+    model = args.model if args.live else "first/backboard/openai/gpt-test"
     try:
         with tempfile.TemporaryDirectory(prefix="cpa-backboard-smoke-") as directory:
             root = Path(directory)
@@ -94,7 +98,7 @@ def main():
             shutil.copy2(args.plugin, root / "plugins" / args.plugin.name)
             auth = root / "auths" / "backboard.json"
             auth.touch(mode=0o600)
-            auth.write_text(json.dumps({"type": "backboard", "api_key": key}))
+            auth.write_text(json.dumps({"type": "backboard", "api_key": key, **({} if args.live else {"prefix":"first"})}))
             with socket.socket() as probe:
                 probe.bind(("127.0.0.1", 0))
                 port = probe.getsockname()[1]
@@ -142,6 +146,35 @@ plugins:
                             raise RuntimeError("CPA did not register the Backboard model")
                         time.sleep(0.5)
                     print(f"Plugin loaded; {len(catalog)} models registered", flush=True)
+                    if not args.live:
+                        page_url = f"http://127.0.0.1:{port}/v0/resource/plugins/cpa-backboard-provider/keys"
+                        with urllib.request.urlopen(page_url, timeout=10) as response:
+                            page = response.read()
+                            assert b"Backboard API keys" in page and b"Add API key" in page, page
+                            assert response.headers["Cache-Control"] == "no-store"
+                        plugins = json.loads(call("/v8/management/plugins", client_key="smoke-management"))["plugins"]
+                        backboard = next(p for p in plugins if p["id"]=="cpa-backboard-provider")
+                        assert any(menu["path"].endswith("/keys") for menu in backboard["menus"]), backboard
+                        try:
+                            call("/v0/management/plugins/backboard/keys", {"api_key":"dummy-key-2"}, client_key="smoke-client")
+                        except RuntimeError as error:
+                            assert "HTTP 401" in str(error) or "HTTP 403" in str(error), error
+                        else:
+                            raise AssertionError("Key entry accepted a client key without management access")
+                        existing = json.loads(call("/v0/management/plugins/backboard/keys", {"api_key":"dummy-key", "label":"Do not overwrite"}, client_key="smoke-management"))
+                        assert existing["status"]=="existing", existing
+                        added = json.loads(call("/v0/management/plugins/backboard/keys", {"api_key":"dummy-key-2", "label":"Second", "prefix":"second"}, client_key="smoke-management"))
+                        assert added["status"]=="added", added
+                        stored = json.loads((root/"auths"/added["file_name"]).read_text())
+                        assert stored["api_key"]=="dummy-key-2" and stored["prefix"]=="second", stored
+                        assert (root/"auths"/added["file_name"]).stat().st_mode & 0o777 == 0o600
+                        try:
+                            call("/v0/management/plugins/backboard/keys", {"api_key":"invalid-key"}, client_key="smoke-management")
+                        except RuntimeError as error:
+                            assert "HTTP 400" in str(error), error
+                        else:
+                            raise AssertionError("Rejected upstream key was saved")
+                        print("Standalone key page + authenticated add + preservation OK",flush=True)
                     try:
                         call("/v0/management/plugins/backboard/cleanup", {}, client_key="smoke-client")
                     except RuntimeError as error:

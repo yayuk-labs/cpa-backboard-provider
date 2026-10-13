@@ -29,7 +29,7 @@ Tagged releases build and test Linux amd64 and arm64 on Ubuntu 22.04, then publi
 
 ## Install and authenticate
 
-For remote Linux CPA, add the registry under `plugins.store-sources`, then choose **Backboard** in the Plugin Store and install version **0.1.0**:
+For remote Linux CPA, add the registry under `plugins.store-sources`, then choose **Backboard** in the Plugin Store and install version **0.1.1**:
 
 ```yaml
 plugins:
@@ -56,6 +56,25 @@ plugins:
     cpa-backboard-provider:
       enabled: true
 ```
+
+### Add keys from CPA (v0.1.1+)
+
+Open **Backboard API keys** in CPA's plugin menu, or visit `/v0/resource/plugins/cpa-backboard-provider/keys` on your CPA server. Enter your CPA management key and Backboard API key; label and routing prefix are optional. Click **Add API key**. Repeat to add more keys. Backboard validates each new key before CPA saves it in its auth directory with mode 0600.
+
+The page keeps the management key only while open and clears the Backboard key after saving. It uses no browser storage. Duplicate keys leave the existing credential and all its settings unchanged; adding a key again does not rename, enable, or alter its routing prefix.
+
+Use this standalone menu, rather than **OAuth Login**. Backboard uses API keys, and CPA's current plugin SDK lists credential parsers under OAuth even when browser login is unsupported. A plugin cannot insert a native AI Providers card or independently hide its OAuth card through this SDK.
+
+For API clients, use the authenticated management route:
+
+```sh
+curl -X POST http://127.0.0.1:8317/v0/management/plugins/backboard/keys \
+  -H 'Authorization: Bearer MANAGEMENT_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{"api_key":"YOUR_BACKBOARD_API_KEY","label":"Work","prefix":"work"}'
+```
+
+### Import an auth file
 
 Create `backboard-account.json` in CPA's configured `oauth.auth-dir`, with restrictive file permissions:
 

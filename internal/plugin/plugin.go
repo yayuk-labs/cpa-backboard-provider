@@ -13,7 +13,7 @@ import (
 )
 
 const ABIVersion = 1
-const Version = "0.1.0"
+const Version = "0.1.1"
 
 type HostCaller func(string, any) (json.RawMessage, error)
 type Envelope struct {
@@ -41,6 +41,7 @@ type App struct {
 	closed        bool
 	workers       sync.WaitGroup
 	shutdown      sync.Once
+	addKeyMu      sync.Mutex
 	history       map[string]*conversation
 	conversations map[*conversation]bool
 	streams       map[string]string
@@ -72,6 +73,7 @@ type request struct {
 	Format                                                                                  string
 	Method, Path                                                                            string
 	OriginalRequest                                                                         []byte
+	Body                                                                                    []byte
 	RawJSON, StorageJSON, Payload, ConfigYAML                                               []byte
 	Metadata, AuthMetadata                                                                  map[string]any
 	baseURL                                                                                 string
@@ -129,8 +131,14 @@ func (a *App) handle(method string, req request) (any, error) {
 		}
 		return map[string]any{"schema_version": 1, "metadata": pluginapi.Metadata{Name: "Backboard", Version: Version, Author: "naufal", GitHubRepository: "https://github.com/yayuk-labs/cpa-backboard-provider"}, "capabilities": map[string]any{"auth_provider": true, "management_api": true, "model_provider": true, "executor": true, "executor_model_scope": "oauth", "executor_input_formats": []string{"chat-completions"}, "executor_output_formats": []string{"chat-completions", "claude", "openai-response"}}}, nil
 	case "management.register":
-		return pluginapi.ManagementRegistrationResponse{Routes: []pluginapi.ManagementRoute{{Method: "POST", Path: "/plugins/backboard/cleanup", Description: "Delete idle plugin-owned Backboard assistants and threads"}}}, nil
+		return pluginapi.ManagementRegistrationResponse{Resources: []pluginapi.ResourceRoute{{Path: "/keys", Menu: "Backboard API keys", Description: "Add Backboard API-key credentials"}}, Routes: []pluginapi.ManagementRoute{{Method: "POST", Path: "/plugins/backboard/cleanup", Description: "Delete idle plugin-owned Backboard assistants and threads"}, {Method: "POST", Path: "/plugins/backboard/keys", Description: "Add a Backboard API key"}}}, nil
 	case "management.handle":
+		if req.Method == "GET" && req.Path == "/v0/resource/plugins/cpa-backboard-provider/keys" {
+			return apiKeysPage(), nil
+		}
+		if req.Method == "POST" && req.Path == "/v0/management/plugins/backboard/keys" {
+			return a.addAPIKey(req), nil
+		}
 		if req.Method != "POST" || req.Path != "/v0/management/plugins/backboard/cleanup" {
 			return pluginapi.ManagementResponse{StatusCode: 404}, nil
 		}
@@ -182,7 +190,7 @@ func (a *App) handle(method string, req request) (any, error) {
 		auth := authData(req.AuthID, req.StorageJSON, data)
 		return pluginapi.AuthRefreshResponse{Auth: auth}, nil
 	case "auth.login.start", "auth.login.poll":
-		return nil, fail(501, "Import a Backboard auth file containing api_key; browser login is not supported")
+		return nil, fail(501, "Use the Backboard API keys menu or import an auth file; Backboard does not use OAuth")
 	case "model.static":
 		return pluginapi.ModelResponse{Provider: "backboard", Models: []pluginapi.ModelInfo{}}, nil
 	case "model.for_auth":
